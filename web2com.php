@@ -3,6 +3,10 @@
 //##                                       Christian Fenzl 2015                                       ##
 //######################################################################################################
 
+// Für die Verwendung von cURL muss unter Linux installiert werden:
+// sudo apt-get install curl libcurl3 libcurl3-dev php5-curl
+
+
 // require '/var/www/kint/Kint.class.php';
 
 // Error-Handling
@@ -36,75 +40,118 @@
 function get_oidvalues($host, $user, $pass, $getoid)
 {
     $oids = explode(";", str_replace(",", ";", $getoid ));
-	$auth = "Authorization: Basic " . base64_encode("$user:$pass");
-    
+	
+    $url = "http://$host/ws";
+	
     $jsonresponse = "{";
 
+    $ch = curl_init();
+    $curlverbose = fopen('php://temp', 'w+');
+	
     foreach ($oids as $oid) {
-        $SOAPRequest  = "<?xml version=\"1.0\" encoding=\"UTF-8\"\?>";
-        $SOAPRequest .= "<SOAP-ENV:Envelope xmlns:SOAP-ENV=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:SOAP-ENC=\"http://schemas.xmlsoap.org/soap/encoding/\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\" xmlns:ns=\"http://ws01.lom.ch/soap/\">";
-        $SOAPRequest .= "<SOAP-ENV:Body><ns:getDpRequest><ref><oid>$oid</oid><prop/></ref><startIndex>0</startIndex><count>-1</count></ns:getDpRequest></SOAP-ENV:Body></SOAP-ENV:Envelope>";
-		$params = array(
-            'http' => array
-            (
-             'method' => 'POST',
-             'header' => "Content-Type: text/xml; charset=utf-8\r\n" .
-						 $auth . "\r\n" .
-                         "SOAPAction: http://ws01.lom.ch/soap/listDP\r\n",
-             'content' => $SOAPRequest
-             )
-         );
+		    $xml_post_string  = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>";
+			$xml_post_string .= "<SOAP-ENV:Envelope xmlns:SOAP-ENV=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:SOAP-ENC=\"http://schemas.xmlsoap.org/soap/encoding/\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\" xmlns:ns=\"http://ws01.lom.ch/soap/\">";
+			$xml_post_string .= "<SOAP-ENV:Body><ns:getDpRequest><ref><oid>$oid</oid><prop/></ref><startIndex>0</startIndex><count>-1</count></ns:getDpRequest></SOAP-ENV:Body></SOAP-ENV:Envelope>";
+			
+			$headers = array(
+                        "Content-Type: text/xml; charset=utf-8",
+                        "Accept: text/xml",
+                        "Cache-Control: no-cache",
+                        "Pragma: no-cache",
+                        "SOAPAction: http://ws01.lom.ch/soap/listDP", 
+                        "Content-length: " . strlen($xml_post_string)
+                    ); 
 
-        $url = "http://$host/ws/";
-        $ctx = stream_context_create($params);
-        $fp = fopen($url, 'r', false, $ctx);
-        $response = stream_get_contents($fp);
-        $value = get_string_between($response, "<value>", "</value>"); 
+            curl_setopt($ch, CURLOPT_URL, $url);
+            curl_setopt($ch, CURLOPT_HEADER, false);
+			curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+			curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+            curl_setopt($ch, CURLOPT_USERPWD, $user.":".$pass); 
+            curl_setopt($ch, CURLOPT_HTTPAUTH, CURLAUTH_ANY);
+            curl_setopt($ch, CURLOPT_POST, true);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, $xml_post_string);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 5);
+            curl_setopt($ch, CURLOPT_VERBOSE, true);
+            curl_setopt($ch, CURLOPT_STDERR, $curlverbose);
+            $response = curl_exec($ch);
+			
+			if ($response === FALSE) {
+				printf("cUrl error (#%d): %s<br>\n", curl_errno($ch),
+				htmlspecialchars(curl_error($ch)));
+				rewind($verbose);
+				$verboseLog = stream_get_contents($verbose);
+				echo "Verbose information:\n<pre>", htmlspecialchars($verboseLog), "</pre>\n";
+			}
+			
+		$value = get_string_between($response, "<value>", "</value>"); 
         $jsonresponse .= "\n \"$oid\": $value,";
-        fclose($fp);
     }
-	echo rtrim($jsonresponse, ",") . "\n}";
 
+    curl_close($ch);
+	echo rtrim($jsonresponse, ",") . "\n}";
 } 
 
 function set_oidvalue($host, $user, $pass, $setoid, $value)
 {
-    $auth = "Authorization: Basic " . base64_encode("$user:$pass");
-    
     $value = str_replace(",", ".", $value);
 	
-	$SOAPRequest  = "<?xml version=\"1.0\" encoding=\"UTF-8\"\?>" .
+	$url = "http://$host/ws";
+	
+	$ch = curl_init();
+    $curlverbose = fopen('php://temp', 'w+');
+	
+	$xml_post_string = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" .
 					"<SOAP-ENV:Envelope xmlns:SOAP-ENV=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:SOAP-ENC=\"http://schemas.xmlsoap.org/soap/encoding/\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\" xmlns:ns=\"http://ws01.lom.ch/soap/\">" .
 					"<SOAP-ENV:Body><ns:writeDpRequest><ref><oid>$setoid</oid><prop/></ref>" .
-					"<dp><index>0</index><name/><prop/><desc/><value>$value</value><unit/><timestamp>0</timestamp></dp>" .
+					"<dp><index>1</index><name/><prop/><desc/><value>$value</value><unit/><timestamp>0</timestamp></dp>" .
 					"</ns:writeDpRequest></SOAP-ENV:Body></SOAP-ENV:Envelope>";
-	$params = array(
-		'http' => array
-		(
-		 'method' => 'POST',
-		 'header' => "Content-Type: text/xml; charset=utf-8\r\n" .
-					 $auth . "\r\n" .
-					 "SOAPAction: http://ws01.lom.ch/soap/writeDP\r\n",
-		 'content' => $SOAPRequest
-		 )
-	 );
+	
+	$headers = array(
+                "Content-Type: text/xml; charset=UTF-8",
+				"Accept: text/xml",
+				"Cache-Control: no-cache",
+				"Pragma: no-cache",
+				"SOAPAction: http://ws01.lom.ch/soap/writeDP", 
+				"Content-length: " . strlen($xml_post_string)
+    ); 
 
-	$url = "http://$host/ws/";
-	$ctx = stream_context_create($params);
-	$fp = fopen($url, 'r', false, $ctx);
-	$response = stream_get_contents($fp);
-	echo htmlentities($response);
-	fclose($fp);
+	curl_setopt($ch, CURLOPT_URL, $url);
+	curl_setopt($ch, CURLOPT_HEADER, false);
+	curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+	curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+	curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+	curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+	curl_setopt($ch, CURLOPT_USERPWD, $user.":".$pass); 
+	curl_setopt($ch, CURLOPT_HTTPAUTH, CURLAUTH_ANY);
+	curl_setopt($ch, CURLOPT_POST, true);
+	curl_setopt($ch, CURLOPT_POSTFIELDS, $xml_post_string);
+	curl_setopt($ch, CURLOPT_TIMEOUT, 5);
+	curl_setopt($ch, CURLOPT_VERBOSE, true);
+	curl_setopt($ch, CURLOPT_STDERR, $curlverbose);
+	$response = curl_exec($ch);
+	
+	//if ($response === FALSE) {
+		printf("cUrl error (#%d): %s<br>\n", curl_errno($ch),
+		htmlspecialchars(curl_error($ch)));
+		rewind($verbose);
+		$verboseLog = stream_get_contents($verbose);
+		echo "Verbose information:\n<pre>", htmlspecialchars($verboseLog), "</pre>\n";
+	//}
+ 
+	curl_close($ch);
+
 } 
 
-function get_string_between($string, $start, $end)
+function get_string_between($mystring, $start, $end)
 {
-    $string = " ".$string;
-    $ini = strpos($string,$start);
+    $string = " ".$mystring;
+    $ini = strpos($mystring,$start);
     if ($ini == 0) return "";
     $ini += strlen($start);
-    $len = strpos($string,$end,$ini) - $ini;
-    return substr($string,$ini,$len);
+    $len = strpos($mystring,$end,$ini) - $ini;
+    return substr($mystring,$ini,$len);
 }
 
 function help() 
@@ -136,7 +183,7 @@ font-size: 10pt;
  alink="#000099" link="#000099" vlink="#990099">
 <h1>Ochsner web2com vom Loxone Miniserver auslesen und schreiben</h1>
 <?php 
-	if ($errors <> "") 
+	if ($errors !== "") 
 		echo "<h2>Fehler:</h2>" .
 			 "$errors;<br>";
 ?>
@@ -205,3 +252,7 @@ Christian Fenzl, christiantf (at) gmx.at 2015. Keine Garantie oder Gewährleistun
 Der Author steht weder mit Loxone noch mit Ochsner Wärmepumpen in Beziehung.
 </body>
 </html>
+
+<?php
+	exit();
+}
