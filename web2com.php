@@ -76,7 +76,7 @@ function set_oidvalue($host, $user, $pass, $setoid, $value)
 	$SOAPRequest  = "<?xml version=\"1.0\" encoding=\"UTF-8\"\?>" .
 					"<SOAP-ENV:Envelope xmlns:SOAP-ENV=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:SOAP-ENC=\"http://schemas.xmlsoap.org/soap/encoding/\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\" xmlns:ns=\"http://ws01.lom.ch/soap/\">" .
 					"<SOAP-ENV:Body><ns:writeDpRequest><ref><oid>$setoid</oid><prop/></ref>" .
-					"<dp><index>0</index><name/><prop/><desc/><value>$value</value><unit/><timestamp>0</timestamp></dp>" .
+					"<dp><index>1</index><name/><prop/><desc/><value>$value</value><unit/><timestamp>0</timestamp></dp>" .
 					"</ns:writeDpRequest></SOAP-ENV:Body></SOAP-ENV:Envelope>";
 	$params = array(
 		'http' => array
