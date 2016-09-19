@@ -4,7 +4,7 @@
 //######################################################################################################
 
 // Für die Verwendung von cURL muss unter Linux installiert werden:
-// sudo apt-get install curl libcurl3 libcurl3-dev php5-curl
+// sudo apt-get install php5-curl
 
 
 // require '/var/www/kint/Kint.class.php';
