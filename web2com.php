@@ -184,9 +184,9 @@ font-size: 10pt;
   </style>
 </head>
 <body
- style="color: rgb(0, 0, 0); background-color: rgb(255, 255, 239); width: 898px;"
+ style="color: rgb(0, 0, 0); background-color: rgb(255, 255, 239); width: 85%;"
  alink="#000099" link="#000099" vlink="#990099">
-<h1>Ochsner web2com vom Loxone Miniserver auslesen und schreiben</h1>
+ <h1>Ochsner web2com vom Loxone Miniserver auslesen und schreiben</h1>
 <?php 
 	// echo "<br>" . $actual_link . "<br>";
 	if ($errors !== "") 
